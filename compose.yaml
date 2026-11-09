@@ -9,6 +9,9 @@ services:
   selfcluster:
     build: .
     image: selfcluster:0.5.0
+    # Always build from this checkout, never pull: with Podman a short image name can resolve
+    # to other registries, where anyone could publish an image called "selfcluster".
+    pull_policy: build
     container_name: selfcluster
     restart: unless-stopped
     env_file: .env
@@ -37,6 +40,7 @@ services:
     profiles: [vip]
     build: ./keepalived
     image: selfcluster-keepalived:0.5.0
+    pull_policy: build
     container_name: selfcluster-vip
     restart: unless-stopped
     network_mode: host

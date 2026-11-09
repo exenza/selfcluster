@@ -52,6 +52,8 @@ Then:
 docker compose up -d
 ```
 
+There is no published image: the first start builds it from your checkout, and compose is set to always build, never pull. To update later, run `git pull && docker compose up -d`; unchanged layers come from the build cache.
+
 Open `http://<node>:7443` and sign in as `admin`.
 
 ### Adding and removing nodes
