@@ -116,14 +116,21 @@ export async function callback(req, res) {
 
   try {
     const { meta: m, jwks } = await discovery(o.issuer);
-    const body = new URLSearchParams({ grant_type: 'authorization_code', code: req.query.code, redirect_uri: tx.r, code_verifier: tx.v, client_id: o.clientId });
+    const body = new URLSearchParams({ grant_type: 'authorization_code', code: req.query.code, redirect_uri: tx.r, code_verifier: tx.v });
     const headers = { 'content-type': 'application/x-www-form-urlencoded', accept: 'application/json' };
     if (o.clientSecret) {
       const methods = m.token_endpoint_auth_methods_supported || ['client_secret_basic'];
       if (methods.includes('client_secret_basic')) {
+        // Credentials go ONLY in the Authorization header. Some providers (PocketID) switch to
+        // reading the form as the credential source the moment client_id appears in it, then
+        // reject the call with "Client id or secret not provided" because the secret was in the
+        // header. Sending client_id in both places is permitted by RFC 6749, but not portable.
         headers.authorization = 'Basic ' + Buffer.from(`${encodeURIComponent(o.clientId)}:${encodeURIComponent(o.clientSecret)}`).toString('base64');
-      } else body.set('client_secret', o.clientSecret);
-    }
+      } else {
+        body.set('client_id', o.clientId);
+        body.set('client_secret', o.clientSecret);
+      }
+    } else body.set('client_id', o.clientId);
     const tr = await fetch(m.token_endpoint, { method: 'POST', headers, body, signal: AbortSignal.timeout(10000) });
     const tok = await tr.json().catch(() => ({}));
     if (!tr.ok || !tok.id_token) return fail(res, `The identity provider refused the sign-in: ${tok.error_description || tok.error || `HTTP ${tr.status}`}`);
