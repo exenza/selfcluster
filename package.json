@@ -1,0 +1,29 @@
+{
+  "name": "selfcluster",
+  "version": "0.5.0",
+  "description": "Multi-node Docker Compose manager for homelabs. Every node serves the UI.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/exenza/selfcluster.git"
+  },
+  "homepage": "https://github.com/exenza/selfcluster",
+  "private": true,
+  "type": "module",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@xterm/addon-fit": "0.10.0",
+    "@xterm/xterm": "5.5.0",
+    "dockerode": "4.0.2",
+    "express": "4.21.1",
+    "jose": "5.9.6",
+    "ws": "8.18.0",
+    "yaml": "2.6.1"
+  }
+}

@@ -1,0 +1,52 @@
+# SelfCluster: run this same file on every node, each with its own .env.
+#   cp .env.example .env   # then edit it
+#   docker compose up -d
+# Optional floating IP shared by the nodes (keepalived, host networking):
+#   docker compose --profile vip up -d
+name: selfcluster
+
+services:
+  selfcluster:
+    build: .
+    image: selfcluster:0.5.0
+    container_name: selfcluster
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      PORT: ${PORT:-7443}
+      # Where new stacks are created and scanned. Running stacks are found wherever they are.
+      STACKS_DIR: ${STACKS_DIR:-/opt/stacks}
+      DATA_DIR: /data
+      HOST_ROOT: /host
+    ports:
+      - "${PORT:-7443}:${PORT:-7443}"
+    volumes:
+      - ${DOCKER_SOCKET:-/var/run/docker.sock}:/var/run/docker.sock
+      # The host's filesystem, so SelfCluster can read and edit compose and .env files wherever
+      # your stacks live. The Docker socket is already root-equivalent; this adds file access.
+      - /:/host
+      - selfcluster-data:/data
+    # Needed on SELinux hosts (Fedora, RHEL, CoreOS) to read the socket and host files.
+    # No effect elsewhere.
+    security_opt:
+      - label=disable
+    labels:
+      selfcluster.self: "true"
+
+  vip:
+    profiles: [vip]
+    build: ./keepalived
+    image: selfcluster-keepalived:0.5.0
+    container_name: selfcluster-vip
+    restart: unless-stopped
+    network_mode: host
+    cap_add: [NET_ADMIN, NET_BROADCAST, NET_RAW]
+    env_file: .env
+    environment:
+      PORT: ${PORT:-7443}
+    depends_on: [selfcluster]
+    labels:
+      selfcluster.self: "true"
+
+volumes:
+  selfcluster-data:

@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>SelfCluster</title>
+<meta name="color-scheme" content="light dark">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cg fill='%230d7480'%3E%3Crect x='1' y='1' width='4' height='4' rx='1'/%3E%3Crect x='6' y='1' width='4' height='4' rx='1' opacity='.55'/%3E%3Crect x='11' y='1' width='4' height='4' rx='1'/%3E%3Crect x='1' y='6' width='4' height='4' rx='1' opacity='.55'/%3E%3Crect x='6' y='6' width='4' height='4' rx='1'/%3E%3Crect x='11' y='6' width='4' height='4' rx='1' opacity='.55'/%3E%3Crect x='1' y='11' width='4' height='4' rx='1'/%3E%3Crect x='6' y='11' width='4' height='4' rx='1' opacity='.55'/%3E%3Crect x='11' y='11' width='4' height='4' rx='1'/%3E%3C/g%3E%3C/svg%3E">
+<link rel="stylesheet" href="/vendor/xterm/css/xterm.css">
+<link rel="stylesheet" href="/styles.css">
+<style>html, body { margin: 0; } [hidden] { display: none !important; }</style>
+</head>
+<body>
+<div class="app" id="app">
+  <header class="topbar">
+    <button class="icon-btn menu-btn" id="menuBtn" aria-label="Show servers and stacks">☰</button>
+    <div class="brand"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span><span class="brand-name">SelfCluster</span></div>
+    <div class="host" id="hostLine"></div>
+    <div class="spacer"></div>
+    <div class="top-stats" id="topStats"></div>
+    <button class="icon-btn" id="clusterBtn" aria-pressed="false" aria-label="Cluster">⬡ <span class="cl-label">Cluster</span></button>
+    <button class="icon-btn via-btn" id="viaBtn" aria-haspopup="menu" aria-expanded="false"></button>
+    <span class="role-chip" id="roleChip" hidden></span>
+    <button class="icon-btn" id="optsBtn" aria-haspopup="dialog" aria-expanded="false" aria-label="UI options">⚙ <span class="opt-label">UI options</span></button>
+  </header>
+
+  <div class="body">
+    <aside class="sidebar" id="sidebar">
+      <div class="side-head">
+        <input class="search" id="search" type="search" placeholder="Filter servers, stacks, containers" aria-label="Filter servers, stacks and containers">
+        <div class="side-row"><select class="side-select" id="srvFilter" aria-label="Server"></select></div>
+        <div class="side-filters" id="sideFilters">
+          <button class="chip" data-f="all" aria-pressed="true">All</button>
+          <button class="chip" data-f="running" aria-pressed="false">Running</button>
+          <button class="chip" data-f="stopped" aria-pressed="false">Not running</button>
+        </div>
+      </div>
+      <nav class="tree" id="tree" aria-label="Servers, stacks and containers"></nav>
+      <div class="side-foot">
+        <button class="icon-btn" id="newStackBtn">+ New stack</button>
+        <button class="icon-btn" id="expandAll" aria-label="Expand all">Expand</button>
+        <button class="icon-btn" id="collapseAll" aria-label="Collapse all">Collapse</button>
+      </div>
+    </aside>
+    <div class="scrim" id="scrim"></div>
+
+    <main class="main">
+      <div class="main-empty" id="mainEmpty" hidden>
+        <div>
+          <p id="mainEmptyText">Loading…</p>
+        </div>
+      </div>
+      <div class="main-head" id="mainHead" hidden>
+        <div class="title-row">
+          <div>
+            <div class="crumbs" id="crumbs"></div>
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+              <h1 class="ctitle" id="ctitle"></h1>
+              <span class="pill" id="cstatus"></span>
+            </div>
+          </div>
+          <div class="actions" id="ctrActions">
+            <button class="btn" id="startStop"></button>
+            <button class="btn" id="restartBtn">Restart</button>
+            <button class="btn" id="pullBtn">Pull image</button>
+            <button class="btn danger" id="removeBtn">Remove</button>
+          </div>
+        </div>
+        <div class="facts" id="facts"></div>
+        <div class="banner" id="offBanner" hidden></div>
+        <div class="tabs" role="tablist">
+          <button class="tab" role="tab" id="tab-compose" aria-selected="true" aria-controls="view-compose">Compose</button>
+          <button class="tab" role="tab" id="tab-inspect" aria-selected="false" aria-controls="view-inspect">Inspection</button>
+        </div>
+      </div>
+
+      <section class="view" id="view-compose" role="tabpanel" aria-labelledby="tab-compose" hidden>
+        <div class="split" id="composeSplit">
+          <div class="panel pane-a">
+            <div class="panel-bar">
+              <span class="panel-title">Compose</span>
+              <span class="path" id="composePath"></span>
+              <span class="dirty" id="composeDirty" hidden>● unsaved</span>
+              <span class="ro" id="composeRo" hidden>read-only</span>
+              <span class="spacer"></span>
+              <button class="btn sm" id="validateBtn">Validate</button>
+              <button class="btn sm" id="revertBtn">Revert</button>
+              <button class="btn sm danger" id="stackDownBtn" title="docker compose down">Down</button>
+              <button class="btn sm primary" id="deployBtn">Deploy</button>
+            </div>
+            <div class="banner conflict" id="composeNote" hidden></div>
+            <div class="banner err conflict" id="conflict" hidden></div>
+            <div class="editor">
+              <div class="gutter-wrap"><div class="gutter" id="composeGutter"></div></div>
+              <textarea id="composeText" spellcheck="false" autocapitalize="off" autocomplete="off" wrap="off" aria-label="docker compose file"></textarea>
+            </div>
+          </div>
+          <div class="handle" data-split="composeSplit" role="separator" aria-label="Resize editor and env files"></div>
+          <div class="panel pane-b">
+            <div class="panel-bar">
+              <span class="panel-title">Env</span>
+              <div class="envtabs" id="envTabs" role="tablist"></div>
+              <button class="btn sm" id="addEnv">+ New file</button>
+              <button class="btn sm primary" id="saveEnv" disabled>Save</button>
+            </div>
+            <div class="envnote" id="envNote" hidden></div>
+            <div class="banner err conflict" id="envConflict" hidden></div>
+            <div class="editor" id="envEditor">
+              <div class="gutter-wrap"><div class="gutter" id="envGutter"></div></div>
+              <textarea id="envText" spellcheck="false" autocapitalize="off" autocomplete="off" wrap="off" aria-label="env file"></textarea>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="view" id="view-inspect" role="tabpanel" aria-labelledby="tab-inspect" hidden>
+        <div class="stats" id="stats"></div>
+        <div class="split" id="inspectSplit">
+          <div class="panel pane-a term-panel" id="termPanel">
+            <div class="panel-bar">
+              <span class="panel-title">Terminal</span>
+              <span id="termHost"></span>
+              <span class="path" id="termPath"></span>
+              <span class="spacer"></span>
+              <select id="shellSel" class="btn sm" aria-label="Shell">
+                <option value="auto">bash, else sh</option><option value="/bin/bash">/bin/bash</option><option value="/bin/sh">/bin/sh</option><option value="/bin/ash">/bin/ash</option>
+              </select>
+              <button class="btn sm" id="termReconnect">Reconnect</button>
+            </div>
+            <div class="term" id="term"></div>
+          </div>
+          <div class="handle" data-split="inspectSplit" role="separator" aria-label="Resize terminal and logs"></div>
+          <div class="panel pane-b">
+            <div class="panel-bar logbar">
+              <span class="panel-title">Logs</span>
+              <span class="live off" id="live"><span class="dot"></span><span id="liveTxt">connecting</span></span>
+              <input type="search" id="logFilter" placeholder="Filter" aria-label="Filter logs">
+              <select id="logLevel" aria-label="Minimum level">
+                <option value="DEBUG">All levels</option><option value="INFO">Info+</option><option value="WARN">Warn+</option><option value="ERROR">Errors</option>
+              </select>
+              <button class="btn sm toggle" id="pauseBtn" aria-pressed="false">Pause</button>
+              <button class="btn sm toggle" id="followBtn" aria-pressed="true">Follow</button>
+              <button class="btn sm toggle" id="tsBtn" aria-pressed="true">Time</button>
+              <button class="btn sm" id="logClear">Clear</button>
+              <span class="lcount" id="lcount"></span>
+            </div>
+            <div class="logs" id="logs" role="log" aria-live="off"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="view cluster" id="view-cluster" hidden></section>
+      <section class="view cluster settings" id="view-settings" hidden></section>
+    </main>
+  </div>
+</div>
+
+<div class="pop" id="pop" role="dialog" aria-label="UI options" hidden>
+  <h3>UI options</h3>
+  <div class="opt"><span class="opt-k">Sidebar grouping</span><div class="seg" data-opt="tree"><button data-v="servers">By server</button><button data-v="picker">Server picker</button><button data-v="stack">By stack</button></div></div>
+  <div class="opt"><span class="opt-k">Theme</span><div class="seg" data-opt="theme"><button data-v="system">System</button><button data-v="light">Light</button><button data-v="dark">Dark</button></div></div>
+  <div class="opt"><span class="opt-k">Density</span><div class="seg" data-opt="density"><button data-v="comfortable">Comfortable</button><button data-v="compact">Compact</button></div></div>
+  <div class="opt"><span class="opt-k">Sidebar width</span><div class="seg" data-opt="side"><button data-v="250">Narrow</button><button data-v="290">Default</button><button data-v="350">Wide</button></div></div>
+  <div class="opt"><span class="opt-k">Status indicator</span><div class="seg" data-opt="status"><button data-v="dot">Dot</button><button data-v="meta">Dot + CPU</button><button data-v="none">None</button></div></div>
+  <div class="opt"><span class="opt-k">Env files position</span><div class="seg" data-opt="envpos"><button data-v="below">Below compose</button><button data-v="side">Beside</button></div></div>
+  <div class="opt"><span class="opt-k">Inspection layout</span><div class="seg" data-opt="inspect"><button data-v="stacked">Terminal above logs</button><button data-v="side">Side by side</button></div></div>
+  <div class="opt"><span class="opt-k">Editor font size</span><div class="seg" data-opt="font"><button data-v="12">12</button><button data-v="13">13</button><button data-v="14">14</button><button data-v="15">15</button></div></div>
+  <div class="opt"><span class="opt-k">Log lines</span><div class="seg" data-opt="wrap"><button data-v="nowrap">No wrap</button><button data-v="wrap">Wrap</button></div></div>
+  <div class="opt"><span class="opt-k">Stats strip</span><div class="seg" data-opt="stats"><button data-v="show">Show</button><button data-v="hide">Hide</button></div></div>
+  <div class="opt-sep" id="whoami"></div>
+  <button class="btn sm signout" id="signOut">Sign out</button>
+</div>
+<div class="pop menu" id="viaMenu" role="menu" hidden></div>
+<div class="pop menu" id="ctxMenu" role="menu" hidden></div>
+
+<div class="modal" id="diffModal" hidden>
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="diffTitle">
+    <div class="modal-head">
+      <h2 id="diffTitle">Compare versions</h2>
+      <span class="path" id="diffPath"></span>
+      <span class="spacer"></span>
+      <span class="legend"><span class="d">− on the server</span><span class="a">+ your edit</span></span>
+    </div>
+    <div class="diff" id="diffBody"></div>
+    <div class="modal-foot">
+      <button class="btn" id="diffClose">Close</button>
+      <button class="btn" id="diffTheirs">Discard mine, load theirs</button>
+      <button class="btn primary" id="diffMine">Save mine over theirs</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="askModal" hidden>
+  <div class="modal-card narrow" role="dialog" aria-modal="true" aria-labelledby="askTitle">
+    <div class="modal-head"><h2 id="askTitle"></h2></div>
+    <div class="modal-body" id="askBody"></div>
+    <div class="modal-foot">
+      <button class="btn" id="askCancel">Cancel</button>
+      <button class="btn primary" id="askOk">OK</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="newStackModal" hidden>
+  <form class="modal-card narrow" role="dialog" aria-modal="true" aria-labelledby="nsTitle" id="newStackForm">
+    <div class="modal-head"><h2 id="nsTitle">New stack</h2></div>
+    <div class="modal-body">
+      <label class="field">Server<select id="nsNode"></select></label>
+      <label class="field">Name<input id="nsName" required pattern="[a-z0-9][a-z0-9_\-]{0,62}" placeholder="e.g. vaultwarden" autocomplete="off"></label>
+      <label class="field">compose.yaml<textarea id="nsCompose" spellcheck="false"></textarea></label>
+      <div class="form-error" id="nsError"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" type="button" id="nsCancel">Cancel</button>
+      <button class="btn" type="submit" data-up="0">Create</button>
+      <button class="btn primary" type="submit" data-up="1">Create and deploy</button>
+    </div>
+  </form>
+</div>
+
+<div class="overlay" id="login" hidden>
+  <div class="login-card">
+    <div class="brand"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>SelfCluster</div>
+    <p id="loginNode">Sign in to manage this cluster.</p>
+    <div class="form-error" id="loginError" role="alert"></div>
+    <a class="btn primary sso-btn" id="ssoBtn" href="/auth/oidc/login" hidden>Sign in with single sign-on</a>
+    <div class="login-or" id="loginOr" hidden><span>or use the admin password</span></div>
+    <form class="login-form" id="loginForm" hidden>
+      <label class="field">User name<input id="loginUser" autocomplete="username" value="admin" required></label>
+      <label class="field">Password<input id="loginPass" type="password" autocomplete="current-password" required></label>
+      <button class="btn" id="loginSubmit" type="submit">Sign in</button>
+    </form>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status"></div>
+
+<script src="/vendor/xterm/lib/xterm.js"></script>
+<script src="/vendor/xterm-fit/lib/addon-fit.js"></script>
+<script src="/app.js"></script>
+</body>
+</html>
