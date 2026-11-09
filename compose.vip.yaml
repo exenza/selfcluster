@@ -1,0 +1,17 @@
+# Extra compose file for the floating IP (keepalived). Run every node with:
+#
+#   docker compose -f compose.yaml -f compose.vip.yaml --profile vip up -d
+#
+# Why the app needs host networking here: with docker's normal port publishing the VIP is
+# DNATed into the container, and the reply is then SNATed to the node's primary address. A
+# client that connected to the VIP receives a SYN-ACK from a different IP and drops it, so
+# the address answers when you test it on the node that holds it and looks dead from
+# everywhere else. With host networking the process holds the port itself and replies on the
+# VIP unchanged. Nothing else changes: the same PORT, the same data volume, the same socket
+# and host filesystem mounts.
+#
+# !reset needs Docker Compose v2.24 or newer.
+services:
+  selfcluster:
+    network_mode: host
+    ports: !reset []

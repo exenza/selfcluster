@@ -181,8 +181,10 @@ How it behaves:
 Give every node the same `VIP_ADDRESS`, `VIP_INTERFACE`, `VIP_PASSWORD` and `VIP_ROUTER_ID`, and a different `VIP_PRIORITY`. Then run:
 
 ```bash
-docker compose --profile vip up -d
+docker compose -f compose.yaml -f compose.vip.yaml --profile vip up -d
 ```
+
+That second file is not optional. It runs the app with host networking, which the floating IP needs: with docker's normal port publishing the VIP is DNATed into the container and the reply is SNATed to the node's primary address, so a client that connected to the VIP receives a SYN-ACK from a different IP and drops it. The symptom is misleading — the address answers on the node that holds it and looks dead from every other machine, while `http://<node>:<port>` keeps working. `compose.vip.yaml` uses `!reset`, so it needs Docker Compose v2.24 or newer. Copying it to `docker-compose.override.yaml` instead makes compose apply it automatically.
 
 keepalived (host networking) keeps the address on the highest-priority node whose SelfCluster answers `/healthz`. Point a DNS name such as `selfcluster.home.lan` at it. If your network blocks multicast (some Wi-Fi and cloud networks do), set `VIP_UNICAST_PEERS` to the other nodes' IPs. This needs the nodes to share a layer-2 network, so a VPS outside your LAN can't take part. Reach that one through its Tailscale/WireGuard address instead.
 
